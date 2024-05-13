@@ -1,14 +1,5 @@
-import torchvision.models.detection.retinanet_resnet50_fpn as retinanet
-import pathlib
-import json
+import torchvision.models.detection.retinanet_resnet50_fpn_v2 as retinanet
 
-def cocotextloader(file_path):
-    fp = pathlib.Path(file_path);
-    if(not fp.exists()):
-        return print(f"File path ({str(fp.absolute())}) does not exist!");
-    with fp.open() as file:
-        annotations = json.load(file);
-    return annotations;
 
 
 def main():
