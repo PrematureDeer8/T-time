@@ -2,6 +2,7 @@ from torch import nn
 import torch
 from torchvision.models import resnet50, ResNet50_Weights
 from subnet import Subnet
+from anchors import Anchors
 
 class RetinaNet(nn.Module):
     def __init__(self,feature_dim=256) -> None:
@@ -28,11 +29,14 @@ class RetinaNet(nn.Module):
         # subnets
         self.classification = Subnet("classification", 256);
         self.regression = Subnet("regression", 256);
+
+        # anchors
+        self.anchors = Anchors();
     
 
-    def forward(self, x):
+    def forward(self, img_batch):
 
-        x = self.backbone.conv1(x);
+        x = self.backbone.conv1(img_batch);
         x = self.backbone.bn1(x);
         x = self.backbone.relu(x);
         x = self.backbone.maxpool(x);
@@ -55,6 +59,8 @@ class RetinaNet(nn.Module):
         P2 = self.conv3x3_P2(P2);
         P6 = self.seq_P6(P5);
 
-        features =  [P2, P3, P4, P5, P6];
-        regression = torch.cat([self.regression(feature) for feature in features], dim=1);
-        classification = torch.cat([self.classification(feature) for feature in features], dim=1);
+        self.features = [P2, P3, P4, P5, P6];
+        self.regr = torch.cat([self.regression(feature) for feature in self.features], dim=1);
+        self.cls = torch.cat([self.classification(feature) for feature in self.features], dim=1);
+
+        self.candidate_anchors = self.anchors(img_batch);
