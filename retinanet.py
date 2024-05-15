@@ -1,5 +1,7 @@
 from torch import nn
+import torch
 from torchvision.models import resnet50, ResNet50_Weights
+from subnet import Subnet
 
 class RetinaNet(nn.Module):
     def __init__(self,feature_dim=256) -> None:
@@ -22,6 +24,10 @@ class RetinaNet(nn.Module):
         self.conv3x3_P2 = nn.Conv2d(feature_dim, feature_dim, kernel_size=3, padding=1);
         # for P6
         self.seq_P6 = nn.Sequential(nn.ReLU(), nn.Conv2d(feature_dim,feature_dim, kernel_size=3,stride=2, padding=1));
+
+        # subnets
+        self.classification = Subnet("classification", 256);
+        self.regression = Subnet("regression", 256);
     
 
     def forward(self, x):
@@ -48,3 +54,7 @@ class RetinaNet(nn.Module):
         P3 = self.conv3x3_P3(P3);
         P2 = self.conv3x3_P2(P2);
         P6 = self.seq_P6(P5);
+
+        features =  [P2, P3, P4, P5, P6];
+        regression = torch.cat([self.regression(feature) for feature in features], dim=1);
+        classification = torch.cat([self.classification(feature) for feature in features], dim=1);
