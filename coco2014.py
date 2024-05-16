@@ -1,11 +1,14 @@
 import pathlib
 import json
 import cv2 as cv
+import numpy as np
+from torch.utils.data import Dataset
 import torch
 
-class CocoDataset2014:
-    def __init__(self, annotation_file, img_folder, device="cpu") -> None:
+class CocoDataset2014(Dataset):
+    def __init__(self,image_size=448, annotation_file="cocotext.v2.json", img_folder="train2014", device="cpu") -> None:
         self.device = device;
+        self.image_size = image_size;
         self.fp = pathlib.Path(annotation_file);
         self.img_folder = pathlib.Path(img_folder);
         with self.fp.open() as file:
@@ -30,51 +33,33 @@ class CocoDataset2014:
                 self.test_imgs.append(img);
             elif(img["set"] == "val"):
                 self.val_imgs.append(img);
-    # input:
-    #   images (list of tensors) -> tensor: shape [batch_size, channel, height, width]
-    #   targets -> [{"boxes": [[1,2,3,4],[5,6,7,8]], "labels": [10, 13] }, ...]
-    def input_loader(self, batch_size, height=640, width=640, shuffle=False):
-        for k in range(int(len(self.train_imgs) / batch_size) + 1):
-            # print(f"[{(k+1) * batch_size} / {len(self.train_imgs)}]")
-            # for when we reach the last part of the dataset
-            # the batch size might not go evenly into the length of the
-            # dataset so we must assign a batch size that will not go over
-            if((k+1) == (int(len(self.train_imgs) / batch_size)) + 1):
-                batch_size = len(self.train_imgs) - k * batch_size;
-            targets = [];
-            img_batch = torch.zeros(batch_size, 3, height, width);
-            # the max number of bounding boxes in one image is 208 
-            bbox_batch = torch.zeros(batch_size, 208, 4);
-            # this line is so that pytorch does not freakout
-            # because the x2 > x1  and y2 > y1 or it will through an error
-            bbox_batch[...,2:] = 1;
-            labels = torch.zeros(batch_size, 208);
-            counter = 0;
-            for i in range(k*batch_size, (k+1)*batch_size):
-                file = self.img_folder / self.train_imgs[i]["file_name"];
-                img_np = cv.imread(str(file.absolute()));
-                ogh, ogw = img_np.shape[:2];
-                img_np = cv.resize(img_np, dsize=(height, width), interpolation=cv.INTER_LINEAR);
-                # change numpy dim of [3,height, width ] --> [width, height,3]
-                img = torch.from_numpy(img_np).permute(2,1,0);
-                img_batch[counter] = img;
-                d = {};
-                for j, box_id in enumerate(self.train_imgs[counter]["annotation_ids"]):
-                    # should be a list [x1, y1, width, height]
-                    bbox = self.annotations["anns"][str(box_id)]["bbox"];
-                    if(len(bbox)):
-                        # have to change the bounding box to match
-                        # the resized image
-                        scale_w, scale_h = width/ogw, height/ogh;
-                        x1, y1, x2, y2 = bbox[0] * scale_w, bbox[1] * scale_h,\
-                            (bbox[0] + bbox[2]) * scale_w, (bbox[1] + bbox[3]) * scale_h;
-                        bbox_batch[counter][j] = torch.Tensor([x1,y1,x2,y2]) /  height; # should be in range 0-1
-                        # change the label to be an object in respective position
-                        labels[counter][j] = .1;
-                d["boxes"] = bbox_batch[counter].to(self.device);
-                d["labels"] = labels[counter].long().to(self.device);
-                targets.append(d);
-                counter += 1;
-            # print(img_batch.shape)
-            # print(type(targets))
-            yield (img_batch, targets);
+    def __len__(self):
+        return  len(self.train_imgs);
+    # output: img, target
+    # target: [x1, y1, x2, y2, cls]
+    def __getitem__(self, idx):
+        img_info = self.train_imgs[idx]; # dictionary item
+        img_path = self.img_folder / img_info["file_name"];
+        img = cv.imread(str(img_path.absolute()));
+        height, width = img.shape[:2];
+        
+        if(len(img_info["annotation_ids"])):
+            target = np.ones((len(img_info["annotation_ids"]),5));
+            for j, id in enumerate(img_info["annotation_ids"]):
+                target[j, :4] = self.annotations["anns"][str(id)]["bbox"];
+            # change [x1, y1, w, h] --> [x1, y1, x2, y2]
+            target[:, 2] = target[:, 0] + target[:, 2];
+            target[:, 3] = target[:, 1] + target[:, 3];
+        else:
+            target = np.array([0,0,0,0,-1], ndmin=2).astype(np.float32);
+        
+        target[:, 0::2][:,:-1] = target[:, 0::2][:,:-1] * float(self.image_size) / float(width);
+        target[:, 1::2] *= float(self.image_size) / float(height);
+
+        img = cv.resize(img, dsize=(self.image_size, self.image_size), interpolation=cv.INTER_LINEAR);
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB);
+
+        # convert numpy ndarray to tensor
+        img = img.transpose((2,0,1));
+        return torch.from_numpy(img), torch.from_numpy(target);
+            

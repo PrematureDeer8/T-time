@@ -28,7 +28,7 @@ class FocalLoss(nn.Module):
             bbox_annotation = bbox_annotation[bbox_annotation[:, 4] != -1];
 
             classification = torch.clamp(classification, 1e-4, 1.0 - 1e-4);
-            # all images in the batch have no object 
+            #  jth image form batch has no object 
             if(bbox_annotation.shape[0] == 0):
                 alpha_factor = torch.ones(classification.shape) * alpha;
 

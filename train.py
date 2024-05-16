@@ -1,9 +1,11 @@
-import torchvision
+from retinanet import RetinaNet
 from coco2014 import CocoDataset2014
 import pathlib
 import torch
 import math
 import sys
+from torch.utils import data
+from loss import FocalLoss
 
 #weights path
 W_PATH = pathlib.Path(".") / "architecture" / "state.pt";
@@ -25,7 +27,7 @@ def main():
     # no pretrained layers
     # pretrained backbone on ImageNet is fine 
     # 2 classes: Object, and No Object --> text or no text
-    model = torchvision.models.detection.retinanet_resnet50_fpn(weights=None, weights_backbone=True, num_classes=2).to(device);    
+    model = RetinaNet();
     # load weight file if possible
     if(W_PATH.stat().st_size != 0):
         model.load_state_dict(torch.load(str(W_PATH.absolute())));
@@ -36,28 +38,28 @@ def main():
     params = [p for p in model.parameters() if p.requires_grad];
     optimizer = torch.optim.SGD(params, lr);
 
+    loss_func = FocalLoss();
+
     epochs = 1;
-    dataset = CocoDataset2014("cocotext.v2.json", "train2014",device=device);
+    dataset = CocoDataset2014(448, "cocotext.v2.json", "train2014",device=device);
 
     print(f"Number of images in training set: {len(dataset.train_imgs)}");
-    dataset_generator = dataset.input_loader(BATCH_SIZE);
+    train_loader = data.DataLoader(dataset, BATCH_SIZE=8, shuffle=True);
     for epoch in range(epochs):
-        print(f"Epoch {epoch}: ");
-        for i in range(int(len(dataset.train_imgs) / BATCH_SIZE) + 1):
-            img, target = next(dataset_generator);
-            output = model(img.to(device), target);
-            # print the loss
-            print(f"Classification loss: {output['classification']:.2f}\t[{(i+1) * BATCH_SIZE} / {len(dataset.train_imgs)}]");
-            print(f"Bounding Box loss: {output['bbox_regression']:.2f}");
-
-            losses = sum(loss for loss in output.values());
-            if not math.isfinite(losses):
-                print(f"Loss is {losses}, stopping training");
-                sys.exit(1);
+        total_loss = 0;
+        for batch, (x_train, y_train) in enumerate(train_loader):
+            classification,regression, anchors =  model(x_train);
+            loss = loss_func(classification,regression,anchors, y_train);
 
             optimizer.zero_grad();
-            losses.backward();
+            loss.backward();
             optimizer.step();
+
+            total_loss += loss.item();
+            if(batch % 10 == 0):
+                loss, current = loss.item(), (batch + 1) * len(x_train);
+                print(f"loss: {loss:>7f} [{current:>5d}/{len(train_loader.dataset):>5}]");
+        print(f"Epoch {epoch}: {total_loss / len(train_loader)}");
     
     
     torch.save(model.state_dict(), str(W_PATH.absolute()));

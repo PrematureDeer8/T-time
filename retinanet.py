@@ -32,6 +32,7 @@ class RetinaNet(nn.Module):
 
         # anchors
         self.anchors = Anchors();
+        
     
 
     def forward(self, img_batch):
@@ -64,3 +65,5 @@ class RetinaNet(nn.Module):
         self.cls = torch.cat([self.classification(feature) for feature in self.features], dim=1);
 
         self.candidate_anchors = self.anchors(img_batch);
+
+        return self.cls, self.regr, self.candidate_anchors;
