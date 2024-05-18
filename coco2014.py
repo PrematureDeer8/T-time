@@ -43,15 +43,17 @@ class CocoDataset2014(Dataset):
         img = cv.imread(str(img_path.absolute()));
         height, width = img.shape[:2];
         
+        # -1 symbolizes no object class
+        target = np.array([0,0,0,0,-1], ndmin=2).astype(np.float32);
+        # the max number of bounding boxes in one image is 208
+        target = np.repeat(target, 208, axis=0);
         if(len(img_info["annotation_ids"])):
-            target = np.ones((len(img_info["annotation_ids"]),5));
             for j, id in enumerate(img_info["annotation_ids"]):
                 target[j, :4] = self.annotations["anns"][str(id)]["bbox"];
+                target[j, 4] = 1;
             # change [x1, y1, w, h] --> [x1, y1, x2, y2]
             target[:, 2] = target[:, 0] + target[:, 2];
             target[:, 3] = target[:, 1] + target[:, 3];
-        else:
-            target = np.array([0,0,0,0,-1], ndmin=2).astype(np.float32);
         
         target[:, 0::2][:,:-1] = target[:, 0::2][:,:-1] * float(self.image_size) / float(width);
         target[:, 1::2] *= float(self.image_size) / float(height);
@@ -60,6 +62,6 @@ class CocoDataset2014(Dataset):
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB);
 
         # convert numpy ndarray to tensor
-        img = img.transpose((2,0,1));
+        img = img.transpose((2,0,1)).astype(np.float32);
         return torch.from_numpy(img), torch.from_numpy(target);
             

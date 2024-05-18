@@ -44,12 +44,14 @@ def main():
     dataset = CocoDataset2014(448, "cocotext.v2.json", "train2014",device=device);
 
     print(f"Number of images in training set: {len(dataset.train_imgs)}");
-    train_loader = data.DataLoader(dataset, BATCH_SIZE=8, shuffle=True);
+    train_loader = data.DataLoader(dataset, batch_size=8, shuffle=True);
     for epoch in range(epochs):
         total_loss = 0;
         for batch, (x_train, y_train) in enumerate(train_loader):
             classification,regression, anchors =  model(x_train);
-            loss = loss_func(classification,regression,anchors, y_train);
+            cls_loss, reg_loss = loss_func(classification,regression,anchors, y_train);
+            
+            loss = cls_loss + reg_loss;
 
             optimizer.zero_grad();
             loss.backward();
