@@ -21,8 +21,8 @@ else:
     device = ("cpu");
 
 def main():
-    BATCH_SIZE = 8;
-    lr = 0.001;
+    BATCH_SIZE = 32;
+    lr = 0.01;
     print(f"Using device: {device}");
     # no pretrained layers
     # pretrained backbone on ImageNet is fine 
@@ -44,7 +44,7 @@ def main():
     dataset = CocoDataset2014(448, "cocotext.v2.json", "train2014",device=device);
 
     print(f"Number of images in training set: {len(dataset.train_imgs)}");
-    train_loader = data.DataLoader(dataset, batch_size=8, shuffle=True);
+    train_loader = data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True);
     for epoch in range(epochs):
         total_loss = 0;
         for batch, (x_train, y_train) in enumerate(train_loader):

@@ -1,7 +1,10 @@
 from torch import nn
+import math
+
+pi = 0.01
 
 class Subnet(nn.Module):
-    def __init__(self,type, num_features_in, anchors=9, feature_dim=256, num_classes=2):
+    def __init__(self,type, num_features_in, anchors=9, feature_dim=256, num_classes=1):
         super(Subnet, self).__init__();
         self.type = type;
         self.anchors = anchors;
@@ -23,7 +26,7 @@ class Subnet(nn.Module):
             self.output = nn.Conv2d(feature_dim, anchors * 4, kernel_size=3, padding=1);
             self.type = 0;
         elif(self.type.lower() == "classification"):
-            self.output = nn.Conv2d(feature_dim, anchors * self.num_classes, kernel_size=3, padding=1);
+            self.output = nn.Conv2d(feature_dim, anchors * self.num_classes, kernel_size=3, padding=1, bias=math.log10((1-pi)/pi));
             self.output_act = nn.Sigmoid();
             self.type = 1;
         else:
