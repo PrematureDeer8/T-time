@@ -4,7 +4,7 @@ import math
 pi = 0.01
 
 class Subnet(nn.Module):
-    def __init__(self,type, num_features_in, anchors=9, feature_dim=256, num_classes=1):
+    def __init__(self,type, num_features_in, anchors=9, feature_dim=256, num_classes=2):
         super(Subnet, self).__init__();
         self.type = type;
         self.anchors = anchors;

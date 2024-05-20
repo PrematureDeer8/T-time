@@ -1,5 +1,5 @@
 from retinanet import RetinaNet
-from coco2014 import CocoDataset2014
+from dataset import CTWDataset
 import pathlib
 import torch
 import math
@@ -21,7 +21,7 @@ else:
     device = ("cpu");
 
 def main():
-    BATCH_SIZE = 32;
+    BATCH_SIZE = 16;
     lr = 0.01;
     print(f"Using device: {device}");
     # no pretrained layers
@@ -41,9 +41,9 @@ def main():
     loss_func = FocalLoss();
 
     epochs = 1;
-    dataset = CocoDataset2014(448, "cocotext.v2.json", "train2014",device=device);
+    dataset = CTWDataset();
 
-    print(f"Number of images in training set: {len(dataset.train_imgs)}");
+    print(f"Number of images in training set: {len(dataset)}");
     train_loader = data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True);
     for epoch in range(epochs):
         total_loss = 0;

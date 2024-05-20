@@ -4,6 +4,57 @@ import cv2 as cv
 import numpy as np
 from torch.utils.data import Dataset
 import torch
+import xml.etree.ElementTree as ET
+
+
+class CTWDataset(Dataset):
+    def __init__(self, image_size=448, annotation_file="archive/ctw1500_train_labels", img_folder="archive/train_images"):
+        self.fp = pathlib.Path(annotation_file);
+        self.img_folder = pathlib.Path(img_folder);
+        self.image_size = image_size;
+        self.annotations = {};
+
+        for xml_file in self.fp.iterdir():
+            root = ET.parse(xml_file).getroot();
+            for image in root:
+                # file name as id
+                id = image.attrib['file'];
+                self.annotations[id] = {};
+                for i, box in enumerate(image):
+                    h, w = int(box.attrib['height']), int(box.attrib['width'])
+                    x1, y1 = int(box.attrib['left']), int(box.attrib['top']);
+                    # [x1,y1, x2, y2] format
+                    self.annotations[id]['box{}'.format(i)] = [x1, y1, x1+w, y1+h];
+    
+    def __len__(self):
+        return len(self.annotations);
+
+    def __getitem__(self, idx):
+        img_key = list(self.annotations.keys())[idx];
+        img_info = self.annotations[img_key];
+        img_path = self.img_folder / img_key;
+        img = cv.imread(str(img_path.absolute()));
+        height, width = img.shape[:2];
+        
+        target = np.array([0,0,0,0,-1], ndmin=2).astype(np.float32);
+        # max number of detections in the dataset is 66
+        target = np.repeat(target, 66, axis=0);
+        for i, key in enumerate(img_info):
+            target[i][:4] = np.array(img_info[key]);
+            target[i][4] = 1;
+        
+        target[:, 0::2][:,:-1] = target[:, 0::2][:,:-1] * float(self.image_size) / float(width);
+        target[:, 1::2] *= float(self.image_size) / float(height);
+
+        img = cv.resize(img, dsize=(self.image_size, self.image_size), interpolation=cv.INTER_LINEAR);
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB);
+
+        # convert numpy ndarray to tensor
+        img = img.transpose((2,0,1)).astype(np.float32);
+        return torch.from_numpy(img), torch.from_numpy(target);
+
+
+
 
 class CocoDataset2014(Dataset):
     def __init__(self,image_size=448, annotation_file="cocotext.v2.json", img_folder="train2014", device="cpu") -> None:

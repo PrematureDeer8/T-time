@@ -52,8 +52,11 @@ class FocalLoss(nn.Module):
             positive_indices = torch.ge(IoU_max, 0.5);
 
             num_positive_anchors = positive_indices.sum();
+            # each anchor gets assigned a groundtruth
+            # where the corresponding ground truth is the max IoU with the anchor
             assigned_annotations = bbox_annotation[IoU_argmax, :];
 
+            # find all anchors greater than 0.5 IoU 
             targets[positive_indices, :] = 0
             targets[positive_indices, assigned_annotations[positive_indices, 4].long()] = 1
 
