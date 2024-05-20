@@ -6,7 +6,6 @@ from torch.utils.data import Dataset
 import torch
 import xml.etree.ElementTree as ET
 
-
 class CTWDataset(Dataset):
     def __init__(self, image_size=448, annotation_file="archive/ctw1500_train_labels", img_folder="archive/train_images"):
         self.fp = pathlib.Path(annotation_file);
@@ -41,7 +40,7 @@ class CTWDataset(Dataset):
         target = np.repeat(target, 66, axis=0);
         for i, key in enumerate(img_info):
             target[i][:4] = np.array(img_info[key]);
-            target[i][4] = 1;
+            target[i][4] = 0;
         
         target[:, 0::2][:,:-1] = target[:, 0::2][:,:-1] * float(self.image_size) / float(width);
         target[:, 1::2] *= float(self.image_size) / float(height);

@@ -1,7 +1,9 @@
 from torch import nn
 import math
+import torch
 
 pi = 0.01
+
 
 class Subnet(nn.Module):
     def __init__(self,type, num_features_in, anchors=9, feature_dim=256, num_classes=2):

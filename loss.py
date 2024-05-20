@@ -18,12 +18,12 @@ class FocalLoss(nn.Module):
         anchor_ctr_y = anchor_heights * 0.5 + anchor[:, 1];
 
         for j in range(batch_size):
-            classification = classifications[j];
-            regression = regressions[j];
+            classification = classifications[j].to('mps');
+            regression = regressions[j].to("mps");
 
             #annotations: [x1, y1, x2, y2, cls]
             # class of -1 means no object 
-            bbox_annotation = annotations[j];
+            bbox_annotation = annotations[j].to('mps');
             # get all the bounding box annotations that are of object
             bbox_annotation = bbox_annotation[bbox_annotation[:, 4] != -1];
 
@@ -43,13 +43,14 @@ class FocalLoss(nn.Module):
                 regression_losses.append(torch.tensor(0).float());
                 continue;
             
-            IoU = box_iou(anchor, bbox_annotation[..., :4]);
-            IoU_max, IoU_argmax = torch.max(IoU, dim=1);
+            IoU = box_iou(anchor, bbox_annotation[..., :4]); # num_anchors x num_annotations
+            # takes the max IoU each anchor has with a groundtruth
+            IoU_max, IoU_argmax = torch.max(IoU, dim=1); # num_anchors x 1
 
-            targets = torch.ones(classification.shape) * -1;
-
+            targets = torch.ones(classification.shape).to("mps") * -1;
+            #assign zero to IoU less than 0.4
             targets[torch.lt(IoU_max, 0.4), : ] = 0;
-            positive_indices = torch.ge(IoU_max, 0.5);
+            positive_indices = torch.ge(IoU_max, 0.5).to("mps");
 
             num_positive_anchors = positive_indices.sum();
             # each anchor gets assigned a groundtruth
@@ -62,24 +63,28 @@ class FocalLoss(nn.Module):
 
             if torch.cuda.is_available():
                 alpha_factor = torch.ones(targets.shape).cuda() * alpha
+            elif torch.backends.mps.is_available():
+                alpha_factor = torch.ones(targets.shape).to("mps") * alpha
             else:
                 alpha_factor = torch.ones(targets.shape) * alpha
 
-            alpha_factor = torch.where(torch.eq(targets, 1.), alpha_factor, 1. - alpha_factor)
-            focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification)
-            focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
+            alpha_factor = torch.where(torch.eq(targets, 1.).to("mps"), alpha_factor, 1. - alpha_factor)
+            # focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification)
+            # focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
 
-            bce = -(targets * torch.log(classification) + (1.0 - targets) * torch.log(1.0 - classification))
+            bce = -(targets * torch.log(classification).to("mps") + (1.0 - targets) * torch.log(1.0 - classification).to("mps"))
 
             # cls_loss = focal_weight * torch.pow(bce, gamma)
-            cls_loss = focal_weight * bce
+            cls_loss = alpha_factor * bce
 
             if torch.cuda.is_available():
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape).cuda())
+            elif torch.backends.mps.is_available():
+                cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape).to("mps"))
             else:
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape))
 
-            classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
+            classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0).to("mps"))
 
             # compute the loss for regression
 
@@ -110,6 +115,8 @@ class FocalLoss(nn.Module):
 
                 if torch.cuda.is_available():
                     targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).cuda()
+                elif torch.backends.mps.is_available():
+                    targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).to('mps');
                 else:
                     targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]])
 
@@ -126,6 +133,8 @@ class FocalLoss(nn.Module):
             else:
                 if torch.cuda.is_available():
                     regression_losses.append(torch.tensor(0).float().cuda())
+                elif(torch.backends.mps.is_available()):
+                    regression_losses.append(torch.tensor(0).float().to('mps'))
                 else:
                     regression_losses.append(torch.tensor(0).float())
 

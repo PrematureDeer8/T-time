@@ -27,7 +27,7 @@ class RetinaNet(nn.Module):
         self.seq_P6 = nn.Sequential(nn.ReLU(), nn.Conv2d(feature_dim,feature_dim, kernel_size=3,stride=2, padding=1));
 
         # subnets
-        self.classification = Subnet("classification", 256);
+        self.classification = Subnet("classification", 256,num_classes=1);
         self.regression = Subnet("regression", 256);
 
         # anchors
