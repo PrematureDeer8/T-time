@@ -13,8 +13,8 @@ else:
     device = ("cpu");
 class FocalLoss(nn.Module):
     def forward(self, classifications, regressions, anchors, annotations):
-        noobj_scaling_factor = 1e-2;
-        obj_scaling_factor = 1e2;
+        # noobj_scaling_factor = 1e-2;
+        # obj_scaling_factor = 1e2;
         alpha = 0.25;
         gamma = 2.0;
         batch_size = classifications.shape[0];
@@ -38,7 +38,7 @@ class FocalLoss(nn.Module):
             # get all the bounding box annotations that are of object
             bbox_annotation = bbox_annotation[bbox_annotation[:, 4] != -1];
 
-            classification = torch.clamp(classification, 1e-4, 1.0 - 1e-4);
+            # classification = torch.clamp(classification, 1e-4, 1.0 - 1e-4);
             #  jth image form batch has no object 
             if(bbox_annotation.shape[0] == 0):
                 alpha_factor = torch.ones(classification.shape) * alpha;
@@ -83,7 +83,7 @@ class FocalLoss(nn.Module):
             # focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification)
             # focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
 
-            bce = -(targets * obj_scaling_factor * torch.log(classification).to(device) + (1.0 - targets) * noobj_scaling_factor * torch.log(1.0 - classification).to(device))
+            bce = -(targets * torch.log(classification).to(device) + (1.0 - targets)  * torch.log(1.0 - classification).to(device))
 
             # cls_loss = focal_weight * torch.pow(bce, gamma)
             cls_loss = alpha_factor * bce
