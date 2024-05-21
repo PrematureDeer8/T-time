@@ -2,19 +2,20 @@ from torch import nn
 import torch
 from torchvision.ops import box_iou
 
+# check device
+if(torch.cuda.is_available()):
+    # torch.set_default_device("cuda");
+    device = ("cuda");
+elif(torch.backends.mps.is_available()):
+    # torch.set_default_device(device);
+    device = ("mps");
+else:
+    device = ("cpu");
 class FocalLoss(nn.Module):
-    def __init__(self):
-        # check device
-        if(torch.cuda.is_available()):
-            # torch.set_default_device("cuda");
-            self.device = ("cuda");
-        elif(torch.backends.mps.is_available()):
-            # torch.set_default_device("mps");
-            self.device = ("mps");
-        else:
-            self.device = ("cpu");
     def forward(self, classifications, regressions, anchors, annotations):
-        alpha = 0.75;
+        noobj_scaling_factor = 1e-3;
+        obj_scaling_factor = 1e2;
+        alpha = 0.25;
         gamma = 2.0;
         batch_size = classifications.shape[0];
         classification_losses = [];
@@ -28,12 +29,12 @@ class FocalLoss(nn.Module):
         anchor_ctr_y = anchor_heights * 0.5 + anchor[:, 1];
 
         for j in range(batch_size):
-            classification = classifications[j].to(self.device);
-            regression = regressions[j].to(self.device);
+            classification = classifications[j].to(device);
+            regression = regressions[j].to(device);
 
             #annotations: [x1, y1, x2, y2, cls]
             # class of -1 means no object 
-            bbox_annotation = annotations[j].to(self.device);
+            bbox_annotation = annotations[j].to(device);
             # get all the bounding box annotations that are of object
             bbox_annotation = bbox_annotation[bbox_annotation[:, 4] != -1];
 
@@ -57,10 +58,10 @@ class FocalLoss(nn.Module):
             # takes the max IoU each anchor has with a groundtruth
             IoU_max, IoU_argmax = torch.max(IoU, dim=1); # num_anchors x 1
 
-            targets = torch.ones(classification.shape).to(self.device) * -1;
+            targets = torch.ones(classification.shape).to(device) * -1;
             #assign zero to IoU less than 0.4
             targets[torch.lt(IoU_max, 0.4), : ] = 0;
-            positive_indices = torch.ge(IoU_max, 0.5).to(self.device);
+            positive_indices = torch.ge(IoU_max, 0.5).to(device);
 
             num_positive_anchors = positive_indices.sum();
             # each anchor gets assigned a groundtruth
@@ -74,15 +75,15 @@ class FocalLoss(nn.Module):
             if torch.cuda.is_available():
                 alpha_factor = torch.ones(targets.shape).cuda() * alpha
             elif torch.backends.mps.is_available():
-                alpha_factor = torch.ones(targets.shape).to(self.device) * alpha
+                alpha_factor = torch.ones(targets.shape).to(device) * alpha
             else:
                 alpha_factor = torch.ones(targets.shape) * alpha
 
-            alpha_factor = torch.where(torch.eq(targets, 1.).to(self.device), alpha_factor, 1. - alpha_factor)
+            alpha_factor = torch.where(torch.eq(targets, 1.).to(device), alpha_factor, 1. - alpha_factor)
             # focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification)
             # focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
 
-            bce = -(targets * torch.log(classification).to(self.device) + (1.0 - targets) * torch.log(1.0 - classification).to(self.device))
+            bce = -(targets * obj_scaling_factor * torch.log(classification).to(device) + (1.0 - targets) * noobj_scaling_factor * torch.log(1.0 - classification).to(device))
 
             # cls_loss = focal_weight * torch.pow(bce, gamma)
             cls_loss = alpha_factor * bce
@@ -90,11 +91,11 @@ class FocalLoss(nn.Module):
             if torch.cuda.is_available():
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape).cuda())
             elif torch.backends.mps.is_available():
-                cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape).to(self.device))
+                cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape).to(device))
             else:
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape))
 
-            classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0).to(self.device))
+            classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0).to(device))
 
             # compute the loss for regression
 
@@ -126,7 +127,7 @@ class FocalLoss(nn.Module):
                 if torch.cuda.is_available():
                     targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).cuda()
                 elif torch.backends.mps.is_available():
-                    targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).to(self.device);
+                    targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).to(device);
                 else:
                     targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]])
 
@@ -144,10 +145,8 @@ class FocalLoss(nn.Module):
                 if torch.cuda.is_available():
                     regression_losses.append(torch.tensor(0).float().cuda())
                 elif(torch.backends.mps.is_available()):
-                    regression_losses.append(torch.tensor(0).float().to(self.device))
+                    regression_losses.append(torch.tensor(0).float().to(device))
                 else:
                     regression_losses.append(torch.tensor(0).float())
 
         return torch.stack(classification_losses).mean(dim=0, keepdim=True), torch.stack(regression_losses).mean(dim=0, keepdim=True)
-
-

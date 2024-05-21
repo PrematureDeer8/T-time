@@ -48,7 +48,7 @@ def main():
 
     loss_func = FocalLoss();
 
-    epochs = 50;
+    epochs = 1;
 
     print(f"Number of images in training set: {len(dataset)}");
     train_loader = data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True);
@@ -67,7 +67,7 @@ def main():
 
             loss.backward();
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1);
+            torch.nn.utils.clip_grad_norm_(params, 0.1);
 
             optimizer.step();
 
