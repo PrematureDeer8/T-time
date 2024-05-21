@@ -7,6 +7,7 @@ import sys
 from torch.utils import data
 from loss import FocalLoss
 import numpy as np
+import sys
 
 #weights path
 W_PATH = pathlib.Path(".") / "architecture" / "state.pt";
@@ -28,7 +29,13 @@ def main():
     lr = 0.01;
     print(f"Using device: {device}");
 
-    dataset = CTWDataset();
+    if(sys.platform == "darwin"):
+        dataset = CTWDataset();
+    else:
+        dataset = CTWDataset(
+            annotation_file=str(pathlib.Path.home() / "Downloads/archive/ctw1500_train_labels"),
+            img_folder=str(pathlib.Path.home() / "Downloads/archive/train_images")
+        );
 
     # no pretrained layers
     # pretrained backbone on ImageNet is fine 
@@ -48,7 +55,7 @@ def main():
 
     loss_func = FocalLoss();
 
-    epochs = 1;
+    epochs = 50;
 
     print(f"Number of images in training set: {len(dataset)}");
     train_loader = data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True);

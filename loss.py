@@ -13,7 +13,7 @@ else:
     device = ("cpu");
 class FocalLoss(nn.Module):
     def forward(self, classifications, regressions, anchors, annotations):
-        noobj_scaling_factor = 1e-3;
+        noobj_scaling_factor = 1e-2;
         obj_scaling_factor = 1e2;
         alpha = 0.25;
         gamma = 2.0;
