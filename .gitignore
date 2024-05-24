@@ -4,3 +4,4 @@ train2014
 architecture
 *.jpg
 archive
+baseline_weights

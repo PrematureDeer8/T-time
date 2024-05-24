@@ -43,7 +43,7 @@ def main():
     model = RetinaNet().to(device);
     # load weight file if possible
     if(W_PATH.stat().st_size != 0):
-        model.load_state_dict(torch.load(str(W_PATH.absolute())));
+        model.load_state_dict(torch.load(str(W_PATH.absolute()), map_location=device));
         print("Successfully loaded model's previous state!");
     model.train();
 
@@ -55,10 +55,10 @@ def main():
 
     loss_func = FocalLoss();
 
-    epochs = 50;
+    epochs = 25;
 
     print(f"Number of images in training set: {len(dataset)}");
-    train_loader = data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True);
+    train_loader = data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False);
     for epoch in range(epochs):
         epoch_loss = [];
         total_loss = 0;
@@ -66,8 +66,8 @@ def main():
             classification,regression, anchors =  model(x_train.to(device));
             cls_loss, reg_loss = loss_func(classification.to(device),regression,anchors.to(device), y_train.to(device));
             
-            cls_loss = cls_loss.mean();
-            reg_loss = reg_loss.mean();
+            # cls_loss = cls_loss.mean();
+            # reg_loss = reg_loss.mean();
             loss = cls_loss + reg_loss;
 
             optimizer.zero_grad();

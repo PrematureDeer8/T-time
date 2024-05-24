@@ -38,7 +38,7 @@ class FocalLoss(nn.Module):
             # get all the bounding box annotations that are of object
             bbox_annotation = bbox_annotation[bbox_annotation[:, 4] != -1];
 
-            # classification = torch.clamp(classification, 1e-4, 1.0 - 1e-4);
+            classification = torch.clamp(classification, 1e-8, 1.0 - 1e-8);
             #  jth image form batch has no object 
             if(bbox_annotation.shape[0] == 0):
                 alpha_factor = torch.ones(classification.shape) * alpha;
@@ -56,12 +56,20 @@ class FocalLoss(nn.Module):
             
             IoU = box_iou(anchor, bbox_annotation[..., :4]); # num_anchors x num_annotations
             # takes the max IoU each anchor has with a groundtruth
+            # this does not guarentee that each ground truth will match with a anchor
+            # so we can potentially have ground truths that don't match up 
+            # and get lost to the universe ):
             IoU_max, IoU_argmax = torch.max(IoU, dim=1); # num_anchors x 1
 
             targets = torch.ones(classification.shape).to(device) * -1;
-            #assign zero to IoU less than 0.4
+            #assign zero to IoU less than 0.4 
+            # with this operation we may be cutting out some of the anchors that are 
+            # the only ones association with a ground truth
             targets[torch.lt(IoU_max, 0.4), : ] = 0;
             positive_indices = torch.ge(IoU_max, 0.5).to(device);
+            # get the max IoU for each ground truth value
+            gt_IoU_argmax = IoU.argmax(dim=0);
+            positive_indices[gt_IoU_argmax] = True;
 
             num_positive_anchors = positive_indices.sum();
             # each anchor gets assigned a groundtruth
@@ -69,7 +77,7 @@ class FocalLoss(nn.Module):
             assigned_annotations = bbox_annotation[IoU_argmax, :];
 
             # find all anchors greater than 0.5 IoU 
-            targets[positive_indices, :] = 0
+            targets[positive_indices, :] = 0;
             targets[positive_indices, assigned_annotations[positive_indices, 4].long()] = 1
 
             if torch.cuda.is_available():
@@ -83,7 +91,7 @@ class FocalLoss(nn.Module):
             # focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification)
             # focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
 
-            bce = -(targets * torch.log(classification).to(device) + (1.0 - targets)  * torch.log(1.0 - classification).to(device))
+            bce = (targets * torch.pow(-torch.log(classification),(3.0/2.0)).to(device) - (1.0 - targets)  * torch.log(1.0 - classification).to(device))
 
             # cls_loss = focal_weight * torch.pow(bce, gamma)
             cls_loss = alpha_factor * bce
