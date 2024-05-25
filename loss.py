@@ -94,7 +94,9 @@ class FocalLoss(nn.Module):
             bce = (targets * torch.pow(-torch.log(classification),(3.0/2.0)).to(device) - (1.0 - targets)  * torch.log(1.0 - classification).to(device))
 
             # cls_loss = focal_weight * torch.pow(bce, gamma)
-            cls_loss = alpha_factor * bce
+            cls_loss = alpha_factor * bce;
+            # weird things happen sometimes
+            cls_loss = torch.nan_to_num(cls_loss);
 
             if torch.cuda.is_available():
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape).cuda())

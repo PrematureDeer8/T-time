@@ -51,7 +51,7 @@ class CTWDataset(Dataset):
         # convert numpy ndarray to tensor
         img = img.transpose((2,0,1)).astype(np.float32);
         # normalize data
-        target[:, :4] /= float(self.image_size);
+        # target[:, :4] /= float(self.image_size);
         return torch.from_numpy(img), torch.from_numpy(target);
 
 
