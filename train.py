@@ -8,6 +8,7 @@ from torch.utils import data
 from loss import FocalLoss
 import numpy as np
 import sys
+import math
 
 #weights path
 W_PATH = pathlib.Path(".") / "architecture" / "state.pt";
@@ -70,6 +71,9 @@ def main():
             # reg_loss = reg_loss.mean();
             loss = cls_loss + reg_loss;
 
+            if(not math.isfinite(loss)):
+                print("Loss is not finite! Stopping training!");
+                sys.exit(0);
             optimizer.zero_grad();
 
             loss.backward();
