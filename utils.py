@@ -80,7 +80,8 @@ def visualize_detect(file_path, weights_path,out_filename="annotated.jpg"):
 
     img = cv.cvtColor(img, cv.COLOR_RGB2BGR);
     for i in range(pred[0].shape[0]):
-        bbox = pred[2][i].detach().numpy().astype(np.int32);
+        # cause its normalized
+        bbox = pred[2][i].detach().numpy().astype(np.int32) * 448;
         img = cv.rectangle(img, tuple(bbox[:2]), tuple(bbox[2:]), (0, 255, 0), 2);
 
     cv.imwrite(out_filename, img);
